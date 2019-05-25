@@ -1,11 +1,15 @@
+/*!
+ * Copyright (c) 2016 Microsoft Corporation. All rights reserved.
+ * Licensed under the MIT License. See LICENSE file in the project root for license information.
+ */
 #ifndef LIGHTGBM_IO_DENSE_BIN_HPP_
 #define LIGHTGBM_IO_DENSE_BIN_HPP_
 
 #include <LightGBM/bin.h>
 
-#include <vector>
-#include <cstring>
 #include <cstdint>
+#include <cstring>
+#include <vector>
 
 namespace LightGBM {
 
@@ -322,7 +326,7 @@ class DenseBin: public Bin {
 };
 
 template<typename VAL_T>
-DenseBin<VAL_T>* DenseBin<VAL_T>::Clone(){
+DenseBin<VAL_T>* DenseBin<VAL_T>::Clone() {
   return new DenseBin<VAL_T>(*this);
 }
 

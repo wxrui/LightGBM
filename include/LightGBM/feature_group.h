@@ -1,10 +1,13 @@
+/*!
+ * Copyright (c) 2017 Microsoft Corporation. All rights reserved.
+ * Licensed under the MIT License. See LICENSE file in the project root for license information.
+ */
 #ifndef LIGHTGBM_FEATURE_GROUP_H_
 #define LIGHTGBM_FEATURE_GROUP_H_
 
-#include <LightGBM/utils/random.h>
-
-#include <LightGBM/meta.h>
 #include <LightGBM/bin.h>
+#include <LightGBM/meta.h>
+#include <LightGBM/utils/random.h>
 
 #include <cstdio>
 #include <memory>
@@ -212,14 +215,14 @@ class FeatureGroup {
   /*! \brief Disable copy */
   FeatureGroup& operator=(const FeatureGroup&) = delete;
   /*! \brief Deep copy */
-  FeatureGroup(const FeatureGroup& other){
+  FeatureGroup(const FeatureGroup& other) {
     num_feature_ = other.num_feature_;
     is_sparse_ = other.is_sparse_;
     num_total_bin_ = other.num_total_bin_;
     bin_offsets_ = other.bin_offsets_;
 
     bin_mappers_.reserve(other.bin_mappers_.size());
-    for(auto& bin_mapper : other.bin_mappers_){
+    for (auto& bin_mapper : other.bin_mappers_) {
       bin_mappers_.emplace_back(new BinMapper(*bin_mapper));
     }
 

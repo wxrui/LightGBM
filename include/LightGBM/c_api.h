@@ -1,5 +1,11 @@
+/*!
+ * Copyright (c) 2016 Microsoft Corporation. All rights reserved.
+ * Licensed under the MIT License. See LICENSE file in the project root for license information.
+ */
 #ifndef LIGHTGBM_C_API_H_
 #define LIGHTGBM_C_API_H_
+
+#include <LightGBM/export.h>
 
 #include <cstdint>
 #include <cstring>
@@ -11,8 +17,6 @@
 * 2. Get current score for training data and validation
 * The reason is because they are called frequently, the type-conversion on them maybe time cost.
 */
-
-#include <LightGBM/export.h>
 
 typedef void* DatasetHandle;
 typedef void* BoosterHandle;
@@ -152,6 +156,25 @@ LIGHTGBM_C_EXPORT int LGBM_DatasetCreateFromCSR(const void* indptr,
                                                 const DatasetHandle reference,
                                                 DatasetHandle* out);
 
+
+/*!
+* \brief create a dataset from CSR format through callbacks
+* \param get_row_funptr pointer to std::function<void(int idx, std::vector<std::pair<int, double>>& ret). CAlled for every row and expected to clear and fill ret
+* \param num_rows number of rows
+* \param num_col number of columns
+* \param parameters additional parameters
+* \param reference used to align bin mapper with other dataset, nullptr means don't used
+* \param out created dataset
+* \return 0 when succeed, -1 when failure happens
+*/
+LIGHTGBM_C_EXPORT int LGBM_DatasetCreateFromCSRFunc(void* get_row_funptr,
+                                                    int num_rows,
+                                                    int64_t num_col,
+                                                    const char* parameters,
+                                                    const DatasetHandle reference,
+                                                    DatasetHandle* out);
+
+
 /*!
 * \brief create a dataset from CSC format
 * \param col_ptr pointer to col headers
@@ -202,10 +225,12 @@ LIGHTGBM_C_EXPORT int LGBM_DatasetCreateFromMat(const void* data,
 
 /*!
 * \brief create dataset from array of dense matrices
+* \param nmat number of matrices
 * \param data pointer to the data space
 * \param data_type type of data pointer, can be C_API_DTYPE_FLOAT32 or C_API_DTYPE_FLOAT64
 * \param nrow number of rows
 * \param ncol number columns
+* \param is_row_major 1 for row major, 0 for column major
 * \param parameters additional parameters
 * \param reference used to align bin mapper with other dataset, nullptr means don't used
 * \param out created dataset
@@ -230,12 +255,11 @@ LIGHTGBM_C_EXPORT int LGBM_DatasetCreateFromMats(int32_t nmat,
 * \param out subset of data
 * \return 0 when succeed, -1 when failure happens
 */
-LIGHTGBM_C_EXPORT int LGBM_DatasetGetSubset(
-  const DatasetHandle handle,
-  const int32_t* used_row_indices,
-  int32_t num_used_row_indices,
-  const char* parameters,
-  DatasetHandle* out);
+LIGHTGBM_C_EXPORT int LGBM_DatasetGetSubset(const DatasetHandle handle,
+                                            const int32_t* used_row_indices,
+                                            int32_t num_used_row_indices,
+                                            const char* parameters,
+                                            DatasetHandle* out);
 
 /*!
 * \brief save feature names to Dataset
@@ -244,10 +268,9 @@ LIGHTGBM_C_EXPORT int LGBM_DatasetGetSubset(
 * \param num_feature_names number of feature names
 * \return 0 when succeed, -1 when failure happens
 */
-LIGHTGBM_C_EXPORT int LGBM_DatasetSetFeatureNames(
-  DatasetHandle handle,
-  const char** feature_names,
-  int num_feature_names);
+LIGHTGBM_C_EXPORT int LGBM_DatasetSetFeatureNames(DatasetHandle handle,
+                                                  const char** feature_names,
+                                                  int num_feature_names);
 
 
 /*!
@@ -257,10 +280,9 @@ LIGHTGBM_C_EXPORT int LGBM_DatasetSetFeatureNames(
 * \param num_feature_names number of feature names
 * \return 0 when succeed, -1 when failure happens
 */
-LIGHTGBM_C_EXPORT int LGBM_DatasetGetFeatureNames(
-  DatasetHandle handle,
-  char** feature_names,
-  int* num_feature_names);
+LIGHTGBM_C_EXPORT int LGBM_DatasetGetFeatureNames(DatasetHandle handle,
+                                                  char** feature_names,
+                                                  int* num_feature_names);
 
 
 /*!
@@ -325,7 +347,8 @@ LIGHTGBM_C_EXPORT int LGBM_DatasetGetField(DatasetHandle handle,
 * \param handle a instance of data matrix
 * \param parameters parameters
 */
-LIGHTGBM_C_EXPORT int LGBM_DatasetUpdateParam(DatasetHandle handle, const char* parameters);
+LIGHTGBM_C_EXPORT int LGBM_DatasetUpdateParam(DatasetHandle handle,
+                                              const char* parameters);
 
 /*!
 * \brief get number of data.
@@ -360,7 +383,7 @@ LIGHTGBM_C_EXPORT int LGBM_DatasetAddFeaturesFrom(DatasetHandle target,
 * \brief create an new boosting learner
 * \param train_data training data set
 * \param parameters format: 'key1=value1 key2=value2'
-* \prama out handle of created Booster
+* \param out handle of created Booster
 * \return 0 when succeed, -1 when failure happens
 */
 LIGHTGBM_C_EXPORT int LGBM_BoosterCreate(const DatasetHandle train_data,
@@ -374,10 +397,9 @@ LIGHTGBM_C_EXPORT int LGBM_BoosterCreate(const DatasetHandle train_data,
 * \param out handle of created Booster
 * \return 0 when succeed, -1 when failure happens
 */
-LIGHTGBM_C_EXPORT int LGBM_BoosterCreateFromModelfile(
-  const char* filename,
-  int* out_num_iterations,
-  BoosterHandle* out);
+LIGHTGBM_C_EXPORT int LGBM_BoosterCreateFromModelfile(const char* filename,
+                                                      int* out_num_iterations,
+                                                      BoosterHandle* out);
 
 /*!
 * \brief load an existing boosting from string
@@ -386,10 +408,9 @@ LIGHTGBM_C_EXPORT int LGBM_BoosterCreateFromModelfile(
 * \param out handle of created Booster
 * \return 0 when succeed, -1 when failure happens
 */
-LIGHTGBM_C_EXPORT int LGBM_BoosterLoadModelFromString(
-  const char* model_str,
-  int* out_num_iterations,
-  BoosterHandle* out);
+LIGHTGBM_C_EXPORT int LGBM_BoosterLoadModelFromString(const char* model_str,
+                                                      int* out_num_iterations,
+                                                      BoosterHandle* out);
 
 /*!
 * \brief free obj in handle
@@ -401,7 +422,9 @@ LIGHTGBM_C_EXPORT int LGBM_BoosterFree(BoosterHandle handle);
 /*!
 * \brief Shuffle Models
 */
-LIGHTGBM_C_EXPORT int LGBM_BoosterShuffleModels(BoosterHandle handle, int start_iter, int end_iter);
+LIGHTGBM_C_EXPORT int LGBM_BoosterShuffleModels(BoosterHandle handle,
+                                                int start_iter,
+                                                int end_iter);
 
 /*!
 * \brief Merge model in two booster to first handle
@@ -436,7 +459,8 @@ LIGHTGBM_C_EXPORT int LGBM_BoosterResetTrainingData(BoosterHandle handle,
 * \param parameters format: 'key1=value1 key2=value2'
 * \return 0 when succeed, -1 when failure happens
 */
-LIGHTGBM_C_EXPORT int LGBM_BoosterResetParameter(BoosterHandle handle, const char* parameters);
+LIGHTGBM_C_EXPORT int LGBM_BoosterResetParameter(BoosterHandle handle,
+                                                 const char* parameters);
 
 /*!
 * \brief Get number of class
@@ -444,7 +468,8 @@ LIGHTGBM_C_EXPORT int LGBM_BoosterResetParameter(BoosterHandle handle, const cha
 * \param out_len number of class
 * \return 0 when succeed, -1 when failure happens
 */
-LIGHTGBM_C_EXPORT int LGBM_BoosterGetNumClasses(BoosterHandle handle, int* out_len);
+LIGHTGBM_C_EXPORT int LGBM_BoosterGetNumClasses(BoosterHandle handle,
+                                                int* out_len);
 
 /*!
 * \brief update the model in one round
@@ -452,17 +477,21 @@ LIGHTGBM_C_EXPORT int LGBM_BoosterGetNumClasses(BoosterHandle handle, int* out_l
 * \param is_finished 1 means finised(cannot split any more)
 * \return 0 when succeed, -1 when failure happens
 */
-LIGHTGBM_C_EXPORT int LGBM_BoosterUpdateOneIter(BoosterHandle handle, int* is_finished);
+LIGHTGBM_C_EXPORT int LGBM_BoosterUpdateOneIter(BoosterHandle handle,
+                                                int* is_finished);
 
 /*!
 * \brief Refit the tree model using the new data (online learning)
 * \param handle handle
-* \param leaf_preds 
+* \param leaf_preds
 * \param nrow number of rows of leaf_preds
 * \param ncol number of columns of leaf_preds
 * \return 0 when succeed, -1 when failure happens
 */
-LIGHTGBM_C_EXPORT int LGBM_BoosterRefit(BoosterHandle handle, const int32_t* leaf_preds, int32_t nrow, int32_t ncol);
+LIGHTGBM_C_EXPORT int LGBM_BoosterRefit(BoosterHandle handle,
+                                        const int32_t* leaf_preds,
+                                        int32_t nrow,
+                                        int32_t ncol);
 
 /*!
 * \brief update the model, by directly specify gradient and second order gradient,
@@ -487,54 +516,70 @@ LIGHTGBM_C_EXPORT int LGBM_BoosterRollbackOneIter(BoosterHandle handle);
 
 /*!
 * \brief Get iteration of current boosting rounds
+* \param handle handle
 * \param out_iteration iteration of boosting rounds
 * \return 0 when succeed, -1 when failure happens
 */
-LIGHTGBM_C_EXPORT int LGBM_BoosterGetCurrentIteration(BoosterHandle handle, int* out_iteration);
+LIGHTGBM_C_EXPORT int LGBM_BoosterGetCurrentIteration(BoosterHandle handle,
+                                                      int* out_iteration);
 
 /*!
 * \brief Get number of tree per iteration
+* \param handle handle
 * \param out_tree_per_iteration number of tree per iteration
 * \return 0 when succeed, -1 when failure happens
 */
-LIGHTGBM_C_EXPORT int LGBM_BoosterNumModelPerIteration(BoosterHandle handle, int* out_tree_per_iteration);
+LIGHTGBM_C_EXPORT int LGBM_BoosterNumModelPerIteration(BoosterHandle handle,
+                                                       int* out_tree_per_iteration);
 
 /*!
 * \brief Get number of weak sub-models
+* \param handle handle
 * \param out_models number of weak sub-models
 * \return 0 when succeed, -1 when failure happens
 */
-LIGHTGBM_C_EXPORT int LGBM_BoosterNumberOfTotalModel(BoosterHandle handle, int* out_models);
+LIGHTGBM_C_EXPORT int LGBM_BoosterNumberOfTotalModel(BoosterHandle handle,
+                                                     int* out_models);
 
 /*!
 * \brief Get number of eval
+* \param handle handle
 * \param out_len total number of eval results
 * \return 0 when succeed, -1 when failure happens
 */
-LIGHTGBM_C_EXPORT int LGBM_BoosterGetEvalCounts(BoosterHandle handle, int* out_len);
+LIGHTGBM_C_EXPORT int LGBM_BoosterGetEvalCounts(BoosterHandle handle,
+                                                int* out_len);
 
 /*!
 * \brief Get name of eval
+* \param handle handle
 * \param out_len total number of eval results
 * \param out_strs names of eval result, need to pre-allocate memory before call this
 * \return 0 when succeed, -1 when failure happens
 */
-LIGHTGBM_C_EXPORT int LGBM_BoosterGetEvalNames(BoosterHandle handle, int* out_len, char** out_strs);
+LIGHTGBM_C_EXPORT int LGBM_BoosterGetEvalNames(BoosterHandle handle,
+                                               int* out_len,
+                                               char** out_strs);
 
 /*!
 * \brief Get name of features
+* \param handle handle
 * \param out_len total number of features
 * \param out_strs names of features, need to pre-allocate memory before call this
 * \return 0 when succeed, -1 when failure happens
 */
-LIGHTGBM_C_EXPORT int LGBM_BoosterGetFeatureNames(BoosterHandle handle, int* out_len, char** out_strs);
+LIGHTGBM_C_EXPORT int LGBM_BoosterGetFeatureNames(BoosterHandle handle,
+                                                  int* out_len,
+                                                  char** out_strs);
 
 /*!
 * \brief Get number of features
+* \param handle handle
 * \param out_len total number of features
 * \return 0 when succeed, -1 when failure happens
 */
-LIGHTGBM_C_EXPORT int LGBM_BoosterGetNumFeature(BoosterHandle handle, int* out_len);
+LIGHTGBM_C_EXPORT int LGBM_BoosterGetNumFeature(BoosterHandle handle,
+                                                int* out_len);
 
 /*!
 * \brief get evaluation for training data and validation data
@@ -543,7 +588,7 @@ Note: 1. you should call LGBM_BoosterGetEvalNames first to get the name of evalu
 * \param handle handle
 * \param data_idx 0:training data, 1: 1st valid data, 2:2nd valid data ...
 * \param out_len len of output result
-* \param out_result float arrary contains result
+* \param out_results float arrary contains result
 * \return 0 when succeed, -1 when failure happens
 */
 LIGHTGBM_C_EXPORT int LGBM_BoosterGetEval(BoosterHandle handle,
@@ -622,7 +667,7 @@ LIGHTGBM_C_EXPORT int LGBM_BoosterCalcNumPredict(BoosterHandle handle,
 /*!
 * \brief make prediction for an new data set
 *        Note:  should pre-allocate memory for out_result,
-*               for noraml and raw score: its length is equal to num_class * num_data
+*               for normal and raw score: its length is equal to num_class * num_data
 *               for leaf index, its length is equal to num_class * num_data * num_iteration
 * \param handle handle
 * \param indptr pointer to row headers
@@ -659,9 +704,50 @@ LIGHTGBM_C_EXPORT int LGBM_BoosterPredictForCSR(BoosterHandle handle,
                                                 double* out_result);
 
 /*!
+* \brief make prediction for an new data set. This method re-uses the internal predictor structure
+*        from previous calls and is optimized for single row invocation.
+*        Note:  should pre-allocate memory for out_result,
+*               for normal and raw score: its length is equal to num_class * num_data
+*               for leaf index, its length is equal to num_class * num_data * num_iteration
+* \param handle handle
+* \param indptr pointer to row headers
+* \param indptr_type type of indptr, can be C_API_DTYPE_INT32 or C_API_DTYPE_INT64
+* \param indices findex
+* \param data fvalue
+* \param data_type type of data pointer, can be C_API_DTYPE_FLOAT32 or C_API_DTYPE_FLOAT64
+* \param nindptr number of rows in the matrix + 1
+* \param nelem number of nonzero elements in the matrix
+* \param num_col number of columns; when it's set to 0, then guess from data
+* \param predict_type
+*          C_API_PREDICT_NORMAL: normal prediction, with transform (if needed)
+*          C_API_PREDICT_RAW_SCORE: raw score
+*          C_API_PREDICT_LEAF_INDEX: leaf index
+* \param num_iteration number of iteration for prediction, <= 0 means no limit
+* \param parameter Other parameters for the parameters, e.g. early stopping for prediction.
+* \param out_len len of output result
+* \param out_result used to set a pointer to array, should allocate memory before call this function
+* \return 0 when succeed, -1 when failure happens
+*/
+LIGHTGBM_C_EXPORT int LGBM_BoosterPredictForCSRSingleRow(BoosterHandle handle,
+                                                         const void* indptr,
+                                                         int indptr_type,
+                                                         const int32_t* indices,
+                                                         const void* data,
+                                                         int data_type,
+                                                         int64_t nindptr,
+                                                         int64_t nelem,
+                                                         int64_t num_col,
+                                                         int predict_type,
+                                                         int num_iteration,
+                                                         const char* parameter,
+                                                         int64_t* out_len,
+                                                         double* out_result);
+
+
+/*!
 * \brief make prediction for an new data set
 *        Note:  should pre-allocate memory for out_result,
-*               for noraml and raw score: its length is equal to num_class * num_data
+*               for normal and raw score: its length is equal to num_class * num_data
 *               for leaf index, its length is equal to num_class * num_data * num_iteration
 * \param handle handle
 * \param col_ptr pointer to col headers
@@ -700,7 +786,7 @@ LIGHTGBM_C_EXPORT int LGBM_BoosterPredictForCSC(BoosterHandle handle,
 /*!
 * \brief make prediction for an new data set
 *        Note:  should pre-allocate memory for out_result,
-*               for noraml and raw score: its length is equal to num_class * num_data
+*               for normal and raw score: its length is equal to num_class * num_data
 *               for leaf index, its length is equal to num_class * num_data * num_iteration
 * \param handle handle
 * \param data pointer to the data space
@@ -731,8 +817,71 @@ LIGHTGBM_C_EXPORT int LGBM_BoosterPredictForMat(BoosterHandle handle,
                                                 double* out_result);
 
 /*!
+* \brief make prediction for an new data set. This method re-uses the internal predictor structure
+*        from previous calls and is optimized for single row invocation.
+*        Note:  should pre-allocate memory for out_result,
+*               for normal and raw score: its length is equal to num_class * num_data
+*               for leaf index, its length is equal to num_class * num_data * num_iteration
+* \param handle handle
+* \param data pointer to the data space
+* \param data_type type of data pointer, can be C_API_DTYPE_FLOAT32 or C_API_DTYPE_FLOAT64
+* \param ncol number columns
+* \param is_row_major 1 for row major, 0 for column major
+* \param predict_type
+*          C_API_PREDICT_NORMAL: normal prediction, with transform (if needed)
+*          C_API_PREDICT_RAW_SCORE: raw score
+*          C_API_PREDICT_LEAF_INDEX: leaf index
+* \param num_iteration number of iteration for prediction, <= 0 means no limit
+* \param parameter Other parameters for the parameters, e.g. early stopping for prediction.
+* \param out_len len of output result
+* \param out_result used to set a pointer to array, should allocate memory before call this function
+* \return 0 when succeed, -1 when failure happens
+*/LIGHTGBM_C_EXPORT int LGBM_BoosterPredictForMatSingleRow(BoosterHandle handle,
+                                                           const void* data,
+                                                           int data_type,
+                                                           int ncol,
+                                                           int is_row_major,
+                                                           int predict_type,
+                                                           int num_iteration,
+                                                           const char* parameter,
+                                                           int64_t* out_len,
+                                                           double* out_result);
+
+/*!
+* \brief make prediction for an new data set
+*        Note:  should pre-allocate memory for out_result,
+*               for noraml and raw score: its length is equal to num_class * num_data
+*               for leaf index, its length is equal to num_class * num_data * num_iteration
+* \param handle handle
+* \param data pointer to the data space
+* \param data_type type of data pointer, can be C_API_DTYPE_FLOAT32 or C_API_DTYPE_FLOAT64
+* \param nrow number of rows
+* \param ncol number columns
+* \param predict_type
+*          C_API_PREDICT_NORMAL: normal prediction, with transform (if needed)
+*          C_API_PREDICT_RAW_SCORE: raw score
+*          C_API_PREDICT_LEAF_INDEX: leaf index
+* \param num_iteration number of iteration for prediction, <= 0 means no limit
+* \param parameter Other parameters for the parameters, e.g. early stopping for prediction.
+* \param out_len len of output result
+* \param out_result used to set a pointer to array, should allocate memory before call this function
+* \return 0 when succeed, -1 when failure happens
+*/
+LIGHTGBM_C_EXPORT int LGBM_BoosterPredictForMats(BoosterHandle handle,
+                                                 const void** data,
+                                                 int data_type,
+                                                 int32_t nrow,
+                                                 int32_t ncol,
+                                                 int predict_type,
+                                                 int num_iteration,
+                                                 const char* parameter,
+                                                 int64_t* out_len,
+                                                 double* out_result);
+
+/*!
 * \brief save model into file
 * \param handle handle
+* \param start_iteration start iteration that should be saved
 * \param num_iteration, <= 0 means save all
 * \param filename file name
 * \return 0 when succeed, -1 when failure happens
@@ -745,6 +894,7 @@ LIGHTGBM_C_EXPORT int LGBM_BoosterSaveModel(BoosterHandle handle,
 /*!
 * \brief save model to string
 * \param handle handle
+* \param start_iteration start iteration that should be saved
 * \param num_iteration, <= 0 means save all
 * \param buffer_len string buffer length, if buffer_len < out_len, re-allocate buffer
 * \param out_len actual output length
@@ -761,6 +911,7 @@ LIGHTGBM_C_EXPORT int LGBM_BoosterSaveModelToString(BoosterHandle handle,
 /*!
 * \brief dump model to json
 * \param handle handle
+* \param start_iteration start iteration that should be dumped
 * \param num_iteration, <= 0 means save all
 * \param buffer_len string buffer length, if buffer_len < out_len, re-allocate buffer
 * \param out_len actual output length

@@ -13,7 +13,8 @@ from tempfile import NamedTemporaryFile
 import numpy as np
 import scipy.sparse
 
-from .compat import (DataFrame, Series, DataTable,
+from .compat import (PANDAS_INSTALLED, DataFrame, Series,
+                     DataTable,
                      decode_string, string_type,
                      integer_types, numeric_types,
                      json, json_default_with_numpy,
@@ -257,7 +258,8 @@ def _data_from_pandas(data, feature_name, categorical_feature, pandas_categorica
             raise ValueError('Input data must be 2 dimensional and non empty.')
         if feature_name == 'auto' or feature_name is None:
             data = data.rename(columns=str)
-        cat_cols = data.select_dtypes(include=['category']).columns
+        cat_cols = list(data.select_dtypes(include=['category']).columns)
+        cat_cols_not_ordered = [col for col in cat_cols if not data[col].cat.ordered]
         if pandas_categorical is None:  # train dataset
             pandas_categorical = [list(data[col].cat.categories) for col in cat_cols]
         else:
@@ -266,26 +268,25 @@ def _data_from_pandas(data, feature_name, categorical_feature, pandas_categorica
             for col, category in zip_(cat_cols, pandas_categorical):
                 if list(data[col].cat.categories) != list(category):
                     data[col] = data[col].cat.set_categories(category)
-        if len(cat_cols):  # cat_cols is pandas Index object
+        if len(cat_cols):  # cat_cols is list
             data = data.copy()  # not alter origin DataFrame
             data[cat_cols] = data[cat_cols].apply(lambda x: x.cat.codes).replace({-1: np.nan})
         if categorical_feature is not None:
             if feature_name is None:
                 feature_name = list(data.columns)
-            if categorical_feature == 'auto':
-                categorical_feature = list(cat_cols)
-            else:
-                categorical_feature = list(categorical_feature) + list(cat_cols)
+            if categorical_feature == 'auto':  # use cat cols from DataFrame
+                categorical_feature = cat_cols_not_ordered
+            else:  # use cat cols specified by user
+                categorical_feature = list(categorical_feature)
         if feature_name == 'auto':
             feature_name = list(data.columns)
         data_dtypes = data.dtypes
         if not all(dtype.name in PANDAS_DTYPE_MAPPER for dtype in data_dtypes):
             bad_fields = [data.columns[i] for i, dtype in
                           enumerate(data_dtypes) if dtype.name not in PANDAS_DTYPE_MAPPER]
-
-            msg = ("DataFrame.dtypes for data must be int, float or bool.\n"
-                   "Did not expect the data types in fields ")
-            raise ValueError(msg + ', '.join(bad_fields))
+            raise ValueError("DataFrame.dtypes for data must be int, float or bool.\n"
+                             "Did not expect the data types in the following fields: "
+                             + ', '.join(bad_fields))
         data = data.values.astype('float')
     else:
         if feature_name == 'auto':
@@ -396,7 +397,7 @@ class _InnerPredictor(object):
             self.num_total_iteration = out_num_iterations.value
             self.pandas_categorical = None
         else:
-            raise TypeError('Need Model file or Booster handle to create a predictor')
+            raise TypeError('Need model_file or booster_handle to create a predictor')
 
         pred_parameter = {} if pred_parameter is None else pred_parameter
         self.pred_parameter = param_dict_to_str(pred_parameter)
@@ -685,7 +686,7 @@ class Dataset(object):
             Categorical features.
             If list of int, interpreted as indices.
             If list of strings, interpreted as feature names (need to specify ``feature_name`` as well).
-            If 'auto' and data is pandas DataFrame, pandas categorical columns are used.
+            If 'auto' and data is pandas DataFrame, pandas unordered categorical columns are used.
             All values in categorical features should be less than int32 max value (2147483647).
             Large values could be memory consuming. Consider using consecutive integers starting from zero.
             All negative values in categorical features will be treated as missing values.
@@ -1577,7 +1578,7 @@ class Dataset(object):
 class Booster(object):
     """Booster in LightGBM."""
 
-    def __init__(self, params=None, train_set=None, model_file=None, silent=False):
+    def __init__(self, params=None, train_set=None, model_file=None, model_str=None, silent=False):
         """Initialize the Booster.
 
         Parameters
@@ -1588,6 +1589,8 @@ class Booster(object):
             Training dataset.
         model_file : string or None, optional (default=None)
             Path to the model file.
+        model_str : string or None, optional (default=None)
+            Model will be loaded from this string.
         silent : bool, optional (default=False)
             Whether to print messages during construction.
         """
@@ -1665,10 +1668,11 @@ class Booster(object):
                 ctypes.byref(out_num_class)))
             self.__num_class = out_num_class.value
             self.pandas_categorical = _load_pandas_categorical(file_name=model_file)
-        elif 'model_str' in params:
-            self.model_from_string(params['model_str'], False)
+        elif model_str is not None:
+            self.model_from_string(model_str, not silent)
         else:
-            raise TypeError('Need at least one training dataset or model file to create booster instance')
+            raise TypeError('Need at least one training dataset or model file or model string '
+                            'to create Booster instance')
         self.params = params
 
     def __del__(self):
@@ -1688,7 +1692,7 @@ class Booster(object):
 
     def __deepcopy__(self, _):
         model_str = self.model_to_string(num_iteration=-1)
-        booster = Booster({'model_str': model_str})
+        booster = Booster(model_str=model_str)
         return booster
 
     def __getstate__(self):
@@ -2257,9 +2261,11 @@ class Booster(object):
 
             Note
             ----
-            If you want to get more explanation for your model's predictions using SHAP values
+            If you want to get more explanations for your model's predictions using SHAP values,
             like SHAP interaction values,
-            you can install shap package (https://github.com/slundberg/shap).
+            you can install the shap package (https://github.com/slundberg/shap).
+            Note that unlike the shap package, with ``pred_contrib`` we return a matrix with an extra
+            column, where the last column is the expected value.
 
         data_has_header : bool, optional (default=False)
             Whether the data has header.
@@ -2426,6 +2432,75 @@ class Booster(object):
             return result.astype(int)
         else:
             return result
+
+    def get_split_value_histogram(self, feature, bins=None, xgboost_style=False):
+        """Get split value histogram for the specified feature.
+
+        Parameters
+        ----------
+        feature : int or string
+            The feature name or index the histogram is calculated for.
+            If int, interpreted as index.
+            If string, interpreted as name.
+
+            Note
+            ----
+            Categorical features are not supported.
+
+        bins : int, string or None, optional (default=None)
+            The maximum number of bins.
+            If None, or int and > number of unique split values and ``xgboost_style=True``,
+            the number of bins equals number of unique split values.
+            If string, it should be one from the list of the supported values by ``numpy.histogram()`` function.
+        xgboost_style : bool, optional (default=False)
+            Whether the returned result should be in the same form as it is in XGBoost.
+            If False, the returned value is tuple of 2 numpy arrays as it is in ``numpy.histogram()`` function.
+            If True, the returned value is matrix, in which the first column is the right edges of non-empty bins
+            and the second one is the histogram values.
+
+        Returns
+        -------
+        result_tuple : tuple of 2 numpy arrays
+            If ``xgboost_style=False``, the values of the histogram of used splitting values for the specified feature
+            and the bin edges.
+        result_array_like : numpy array or pandas DataFrame (if pandas is installed)
+            If ``xgboost_style=True``, the histogram of used splitting values for the specified feature.
+        """
+        def add(root):
+            """Recursively add thresholds."""
+            if 'split_index' in root:  # non-leaf
+                if feature_names is not None and isinstance(feature, string_type):
+                    split_feature = feature_names[root['split_feature']]
+                else:
+                    split_feature = root['split_feature']
+                if split_feature == feature:
+                    if isinstance(root['threshold'], string_type):
+                        raise LightGBMError('Cannot compute split value histogram for the categorical feature')
+                    else:
+                        values.append(root['threshold'])
+                add(root['left_child'])
+                add(root['right_child'])
+
+        model = self.dump_model()
+        feature_names = model.get('feature_names')
+        tree_infos = model['tree_info']
+        values = []
+        for tree_info in tree_infos:
+            add(tree_info['tree_structure'])
+
+        if bins is None or isinstance(bins, integer_types) and xgboost_style:
+            n_unique = len(np.unique(values))
+            bins = max(min(n_unique, bins) if bins is not None else n_unique, 1)
+        hist, bin_edges = np.histogram(values, bins=bins)
+        if xgboost_style:
+            ret = np.column_stack((bin_edges[1:], hist))
+            ret = ret[ret[:, 1] > 0]
+            if PANDAS_INSTALLED:
+                return DataFrame(ret, columns=['SplitValue', 'Count'])
+            else:
+                return ret
+        else:
+            return hist, bin_edges
 
     def __inner_eval(self, data_name, data_idx, feval=None):
         """Evaluate training or validation data."""

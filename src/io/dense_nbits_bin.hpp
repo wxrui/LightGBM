@@ -1,11 +1,15 @@
+/*!
+ * Copyright (c) 2017 Microsoft Corporation. All rights reserved.
+ * Licensed under the MIT License. See LICENSE file in the project root for license information.
+ */
 #ifndef LIGHTGBM_IO_DENSE_NBITS_BIN_HPP_
 #define LIGHTGBM_IO_DENSE_NBITS_BIN_HPP_
 
 #include <LightGBM/bin.h>
 
-#include <vector>
-#include <cstring>
 #include <cstdint>
+#include <cstring>
+#include <vector>
 
 namespace LightGBM {
 
@@ -369,8 +373,8 @@ class Dense4bitsBin : public Bin {
 
  protected:
   Dense4bitsBin(const Dense4bitsBin& other)
-    : num_data_(other.num_data_), data_(other.data_), buf_(other.buf_){}
-    
+    : num_data_(other.num_data_), data_(other.data_), buf_(other.buf_) {}
+
   data_size_t num_data_;
   std::vector<uint8_t> data_;
   std::vector<uint8_t> buf_;
